@@ -1,0 +1,176 @@
+- hosts: k8snodes
+  become: yes
+  tasks:
+   - name: start Docker
+     service:
+       name: docker
+       state: started
+
+   - name: Remove swapfile from /etc/fstab
+     mount:
+       name: swap
+       fstype: swap
+       state: absent
+
+   - name: Disable swap
+     command: swapoff -a
+
+   - name: Delete swapfile
+     file:
+       name: /swapfile
+       state: absent
+
+   - name: ensure net.bridge.bridge-nf-call-ip6tables is set to 1
+     sysctl:
+      name: net.bridge.bridge-nf-call-ip6tables
+      value: 1
+      state: present
+
+   - name: ensure net.bridge.bridge-nf-call-iptables is set to 1
+     sysctl:
+      name: net.bridge.bridge-nf-call-iptables
+      value: 1
+      state: present
+
+   - name: start kubelet
+     service:
+       name: kubelet
+       enabled: yes
+       state: started
+
+- hosts: masters
+  become: yes
+  tasks:
+    - name: initialize the cluster
+      shell: kubeadm init --pod-network-cidr=10.48.0.0/16 --service-cidr=10.49.0.0/16 --apiserver-cert-extra-sans=HOST >> ~/cluster_initialized.txt
+      args:
+        chdir: /home/ubuntu
+        creates: cluster_initialized.txt
+    - name: create .kube directory
+      become_user: ubuntu
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        mode: 0755
+        owner: ubuntu
+    - name: copy admin.conf to user's kube config
+      become: yes
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+    - name: Copy readme
+      become_user: ubuntu
+      copy:
+        src: /home/ubuntu/.k8s/README
+        dest: /home/ubuntu/README
+        owner: ubuntu
+        remote_src: yes
+        mode: 0755
+    - name: copy hostaliases
+      become_user: ubuntu
+      copy:
+        src: /home/ubuntu/.k8s/hostaliases
+        dest: /home/ubuntu/hostaliases
+        owner: ubuntu
+        remote_src: yes
+        mode: 0755
+    - name: copy PEM file
+      become_user: ubuntu
+      copy:
+        src: "{{ item }}"
+        dest: /home/ubuntu/
+        owner: ubuntu
+        mode: 0500
+        remote_src: yes
+      with_fileglob:
+        - /home/ubuntu/.k8s/*.pem
+
+- hosts: masters
+  become: yes
+  gather_facts: false
+  tasks:
+    - name: get join command
+      shell: kubeadm token create --print-join-command
+      register: join_command_raw
+
+    - name: set join command
+      set_fact:
+        join_command: "{{ join_command_raw.stdout_lines[0] }}"
+
+- hosts: workers
+  become: yes
+  tasks:
+    - name: join cluster
+      shell: "{{ hostvars[groups['masters'][0]].join_command }} --ignore-preflight-errors all  >> node_joined.txt"
+      args:
+        chdir: /home/ubuntu
+        creates: node_joined.txt
+
+- hosts: masters
+  gather_facts: false
+  tasks:
+    - name: Remove taint from master
+      shell: kubectl taint node ip-10-0-0-10 node-role.kubernetes.io/master-
+      ignore_errors: yes
+    - name: label nodes
+      shell: |
+        kubectl label nodes ip-10-0-0-10 labnode=master1
+        kubectl label nodes ip-10-0-0-11 labnode=worker1
+        kubectl label nodes ip-10-0-0-12 labnode=worker2
+        kubectl label nodes ip-10-0-0-10 labnodetype=master
+        kubectl label nodes ip-10-0-0-12 labnodetype=worker
+        kubectl label nodes ip-10-0-0-11 labnodetype=worker
+      ignore_errors: yes
+    - name: enable calico 3.10
+      shell: kubectl apply -f calico310.yaml 
+      args:
+        chdir: /home/ubuntu/.k8s
+
+
+
+- hosts: "workers, bird"
+  gather_facts: no
+  tasks:
+    - name: copy PEM file
+      copy:
+        src: "{{ item }}"
+        dest: /home/ubuntu/
+        owner: ubuntu
+        mode: 0500
+      with_fileglob:
+        - /home/ubuntu/.k8s/*.pem
+    - name: create .kube directory
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        mode: 0755
+    - name: Copy kubeconfig
+      copy:
+        src: /home/ubuntu/.kube/config
+        dest: /home/ubuntu/.kube/config
+        owner: ubuntu
+    - name: Copy readme
+      copy:
+        src: /home/ubuntu/.k8s/README
+        dest: /home/ubuntu/README
+        owner: ubuntu
+        mode: 0755
+    - name: copy hostaliases
+      copy:
+        src: /home/ubuntu/.k8s/hostaliases
+        dest: /home/ubuntu/hostaliases
+        owner: ubuntu
+        mode: 0755
+
+- hosts: "k8snodes, bird"
+  gather_facts: no
+  tasks:
+    - name: run ttyd at ttyd_port
+      shell: "(ttyd -p {{ ttyd_port }} -c {{ ttyd_username }}:{{ ttyd_password }} bash >/dev/null 2>&1 &)"
+      async: 10
+      poll: 0
+      when: ttyd_enable == "yes"
+      tags: 
+        - ttyd

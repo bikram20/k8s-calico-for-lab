@@ -1,0 +1,52 @@
+Welcome to Calico Lab. Please do the following to get started. 
+
+- Refer to the lab diagram (slides) for node connectivity. Broadly speaking, your kubernetes cluster has 3 nodes (master, worker1 and worker2). There is an extra node (called bird or host1) which is used to demonstrate advanced networking. 
+
+- Make sure you've your public IP's for 4 hosts (master, worker1, worker2, bird) and a password to access via web terminal (http://<host>:31003)
+
+- If you prefer shell access, then just copy over <user>_calico.pem file from $HOME folder of any host.
+
+- Connect to all 4 hosts in different (web) terminals. 
+  - Source ~/hostaliases file by running "source ~/hostaliases" command. This will ensure you can use host aliases to connect to any host.
+  - Set PS1 prompt for better readability. 
+    - On ip-10-0-0-10: export PS1='master: `pwd`>>> '
+    - On ip-10-0-0-11: export PS1='worker1: `pwd`>>> '
+    - On ip-10-0-0-10: export PS1='worker2: `pwd`>>> '
+    - On ip-10-0-0-10: export PS1='bird: `pwd`>>> '
+
+- All hosts are part of same subnet, and are set up with kubectl. So you can do your lab from any host. We recommend that you use BIRD host (ip-10-0-0-20) as your jump host.
+  
+- git clone <repo> to jump host (bird - ip-10-0-0-20), unless already available.
+ 
+- Set up BGP on bird host. It is not peering to the kubernetes cluster yet.
+
+sudo apt-get install bird -y
+sudo cp <git-repo>/calicocon/000-get-started/lab-setup/bird.conf /etc/bird/bird.conf
+sudo systemctl restart bird
+
+- Set up BGP in Calico. It is not peering with any host outside the cluster yet.
+
+calicoctl apply -f ~/calicocon/000-get-started/lab-setup/bgp.conf 
+
+Verify on each k8s node that BGP peering is up by running the command "sudo calicoctl node status".
+
+- Access the Calico lab repository from another browser window and follow through the modules.
+
+
+IMPORTANT:
+- Modify the host endpoint file (<calicocon repo>/lab-manifests/230-host-endpoint.yaml) to reflect the node name and interface name. For example:
+
+apiVersion: projectcalico.org/v3
+kind: HostEndpoint
+metadata:
+  name: master1
+  labels:
+    k8s-master: true
+    k8s-worker: true
+spec:
+  interfaceName: eth0
+  node: ip-10-0-0-10
+  expectedIPs: ["10.0.0.10"]
+---
+
+

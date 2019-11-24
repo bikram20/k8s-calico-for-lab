@@ -1,0 +1,5 @@
+*.pem
+*.tfstate
+*.backup
+.terraform
+.packer

@@ -1,0 +1,5 @@
+alias bird='ssh -i *.pem ubuntu@10.0.0.20'
+alias master='ssh -i *.pem ubuntu@10.0.0.10'
+alias worker1='ssh -i *.pem ubuntu@10.0.0.11'
+alias worker2='ssh -i *.pem ubuntu@10.0.0.12'
+

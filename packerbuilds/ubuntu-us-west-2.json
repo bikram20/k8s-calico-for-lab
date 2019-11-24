@@ -1,0 +1,30 @@
+{
+    "variables": {
+      "name": "ubuntu18_k8s_ready",
+      "source_ami": "ami-06d51e91cea0dac8d",
+      "access_key":"",
+      "secret_key":"",
+      "region":"us-west-2"
+    },
+    "builders": [{
+      "type": "amazon-ebs",
+      "access_key": "{{user `access_key`}}",
+      "secret_key":"{{user `secret_key`}}",
+      "ami_name": "{{user `name`}}",
+      "region": "{{user `region`}}",
+      "source_ami": "{{user `source_ami`}}",
+      "instance_type": "t2.micro",
+      "communicator": "ssh",
+      "ssh_username": "ubuntu",
+      "run_tags":{"Name":"packer-image"}
+    }],
+    "provisioners": [
+        {
+            "type": "shell",
+            "execute_command": "echo 'packer' | sudo -S env {{ .Vars }} {{ .Path }}",
+            "scripts": [
+               "update_ubuntu_k8s_node.sh"
+            ]
+        }
+      ]
+}
