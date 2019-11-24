@@ -19,7 +19,9 @@ If using us-west-2, you can use the AMI configured in variables.tf
 
 ### Run
 terraform init
+
 terraform apply
+
 terraform output
 
 ### Connect to lab
