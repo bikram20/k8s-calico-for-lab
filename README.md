@@ -1,4 +1,4 @@
-# k8s-for-lab
+# k8s-calico-for-lab
 Set up kubernetes 1.15.4 with calico 3.10 using packer, terraform, and ansible. 1-click creation/deletion. 
 
 git clone 
