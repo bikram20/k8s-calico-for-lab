@@ -29,3 +29,11 @@ terraform output
 ssh into any node. kubectl and calicoctl are configured on all nodes.
 
 if you enabled ttyd, then you can access terminal via http (not https for now). Disabled in terraform.tfvars
+
+### If you want to clean up and restart again without having to re-install the lab
+ssh into master node (10.0.0.10). In the .k8s folder, you will find kube-cluster.yaml and kube-remove.yaml. The later will reset the lab to pre-kubernetes, clean state.
+
+ansible-playbook -i inventory --private-key <key>.pem kube-remove.yaml
+ansible-playbook -i inventory --private-key <key>.pem kube-cluster.yaml
+
+You end up saving about 5min.

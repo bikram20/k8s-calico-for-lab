@@ -1,0 +1,41 @@
+- hosts: masters
+  gather_facts: false
+  tasks:
+    - name: drain worker1
+      shell: kubectl drain ip-10-0-0-11 --ignore-daemonsets --force
+      ignore_errors: yes
+    - name: delete worker1
+      shell: kubectl delete node ip-10-0-0-11
+      ignore_errors: yes
+    - name: drain worker2
+      shell: kubectl drain ip-10-0-0-12 --ignore-daemonsets --force
+      ignore_errors: yes
+    - name: delete worker2
+      shell: kubectl delete node ip-10-0-0-12
+      ignore_errors: yes
+
+- hosts: k8snodes
+  become: yes
+  tasks:
+    - name: Do a kubeadm reset
+      shell: kubeadm reset --force
+      args:
+        chdir: $HOME
+    - name: Reset iptables
+      shell: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+    - name: Delete .kube directory
+      ignore_errors: yes
+      file:
+        path: $HOME/.kube
+        state: absent
+    - name: Delete cluster_initialized.txt
+      ignore_errors: yes
+      file:
+        path: /home/ubuntu/cluster_initialized.txt
+        state: absent
+    - name: Delete node_joined.txt
+      ignore_errors: yes
+      file:
+        path: /home/ubuntu/node_joined.txt
+        state: absent
+
